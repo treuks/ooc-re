@@ -1,0 +1,22 @@
+{
+  "name": "ooc-re",
+  "version": "0.0.0",
+  "scripts": {
+    "res:build": "rescript",
+    "res:clean": "rescript clean",
+    "res:dev": "rescript -w",
+    "res:bundle": "esbuild --bundle ./src/Main.res.mjs --outfile=out.js"
+  },
+  "keywords": [
+    "rescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@rescript/core": "^1.6.1",
+    "rescript": "^11.1.4"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.2"
+  }
+}
