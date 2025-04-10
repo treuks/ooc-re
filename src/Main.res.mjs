@@ -144,10 +144,11 @@ function main(args) {
             } else {
               var xd$1 = args[1];
               if (xd$1 === "last") {
-                var messagesWithRemovedMessage = dataWithRemovedMessageById(dat, getMaxIdInData(dat));
+                var maxId = getMaxIdInData(dat);
+                var messagesWithRemovedMessage = dataWithRemovedMessageById(dat, maxId);
                 if (messagesWithRemovedMessage.messages.length < dat.messages.length) {
                   channelCustomData.set("OOC_MSGS", messagesWithRemovedMessage);
-                  tmp = "Succesfully removed last message";
+                  tmp = "Succesfully removed last message (#" + maxId.toString() + ")";
                 } else {
                   tmp = "Couldn't remove message with last ID. Report this to @treuks";
                 }

@@ -144,11 +144,12 @@ let main = ( args: array<string> ): string => {
                                 } else {
                                     switch args->Array.getUnsafe(1) {
                                     | "last" => {
-                                        let messagesWithRemovedMessage = dataWithRemovedMessageById(dat, getMaxIdInData(dat))
+                                        let maxId = getMaxIdInData(dat)
+                                        let messagesWithRemovedMessage = dataWithRemovedMessageById(dat, maxId)
 
                                         if (messagesWithRemovedMessage.messages->Array.length) < (dat.messages->Array.length) {
                                             updatePinnedDataWith(messagesWithRemovedMessage)
-                                            "Succesfully removed last message"
+                                            `Succesfully removed last message (#${maxId->Int.toString})`
                                         } else {
                                             "Couldn't remove message with last ID. Report this to @treuks"
                                         }
