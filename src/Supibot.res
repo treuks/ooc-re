@@ -4,8 +4,8 @@ module ChannelCustomData = {
     type oocMessage = { id: int, text: string, date: string, addedBy: string }
     type oocData = { currentId: int, messages: array<oocMessage> }
 
-    @scope("channelCustomData") @val 
-    external get: string => Nullable.t<'a> = "get"
+    @scope("channelCustomData") @val @return(nullable)
+    external get: string => option<'a> = "get"
 
     @scope("channelCustomData") @val 
     external set: (string, 'a) => unit = "set"
@@ -18,7 +18,7 @@ module ChannelCustomData = {
         
         let data = get(prefix)
 
-        let cdata = data->Nullable.getOr({ currentId: 0, messages: []})
+        let cdata = data->Option.getOr({ currentId: 0, messages: []})
 
         let result = {
             if cdata.messages->Array.length == 0 {
@@ -55,5 +55,5 @@ module Utils = {
         ) => option<closestStringDescriptor> = "selectClosestString"
 }
 
-@scope("executor") @val
+@val
 external executor : string = "executor"

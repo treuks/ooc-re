@@ -131,7 +131,7 @@ function main(args) {
               tmp = "You didn't actually provide a message. Add some text after that";
             } else {
               var messageText$1 = args.slice(1).join(" ");
-              var newData = dataWithAddedMessage(dat, messageText$1, executor.executor);
+              var newData = dataWithAddedMessage(dat, messageText$1, executor);
               channelCustomData.set("OOC_MSGS", newData);
               tmp = "Pinned the message with ID: " + newData.currentId.toString();
             }
