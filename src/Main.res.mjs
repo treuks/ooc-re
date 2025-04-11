@@ -57,15 +57,54 @@ function getMessageWithId(data, id) {
 }
 
 function getMaxIdInData(data) {
-  return Caml_splice_call.spliceApply(Math.max, [data.messages.map(function (m) {
-                    return m.id;
-                  })]) | 0;
+  if (data.messages.at(data.currentId) !== undefined) {
+    return data.currentId;
+  } else {
+    return Caml_splice_call.spliceApply(Math.max, [data.messages.map(function (m) {
+                      return m.id;
+                    })]) | 0;
+  }
 }
 
 function getLastMessage(data) {
   var maxId = getMaxIdInData(data);
   return getMessageWithId(data, maxId);
 }
+
+function isInMiddle(data, idx) {
+  var maxId = getMaxIdInData(data);
+  if (idx < maxId) {
+    return idx !== 0;
+  } else {
+    return false;
+  }
+}
+
+var getClosestId = ((arr, target) => {
+  let left = 0;
+  let right = arr.length - 1;
+  let closest = arr[0];
+
+  while (left <= right) {
+      const mid = Math.floor((left + right) / 2);
+
+      if (Math.abs(arr[mid] - target) < Math.abs(closest - target)) {
+          closest = arr[mid];
+      }
+
+      if (arr[mid] === target) {
+          return arr[mid];
+      }
+
+      if (arr[mid] < target) {
+          left = mid + 1;
+      } else {
+          right = mid - 1;
+      }
+  }
+
+  return closest;
+});
 
 var noPinnedMessages = "There aren't any pinned messages yet. You should try pinning something with $$ooc add […]";
 
@@ -87,12 +126,19 @@ function main(args) {
               var xd = args[1];
               if (xd === "last") {
                 var msg = getLastMessage(dat).at(0);
-                tmp = msg !== undefined ? formatMessageWithMsg(msg) : "Trying to get the message with the last id but found multiple. Please report this to @treuks";
+                tmp = msg !== undefined ? formatMessageWithMsg(msg) : "Tried to get a message that exists, but actually it doesn't exist. Please report this to @treuks";
               } else {
                 var num = Core__Int.fromString(xd, undefined);
                 if (num !== undefined) {
-                  var msg$1 = getMessageWithId(dat, num)[0];
-                  tmp = msg$1 !== undefined ? formatMessageWithMsg(msg$1) : "Couldn't find a message with that id. Current id is " + dat.currentId.toString();
+                  var msg$1 = getMessageWithId(dat, num).at(0);
+                  if (msg$1 !== undefined) {
+                    tmp = formatMessageWithMsg(msg$1);
+                  } else {
+                    var closestNumber = getClosestId(dat.messages.map(function (m) {
+                              return m.id;
+                            }), num);
+                    tmp = isInMiddle(dat, num) ? "Looks like that message has been deleted. Did you mean #" + closestNumber.toString() + " ?" : "Couldn't find a message with that id. Did you mean #" + closestNumber.toString() + " ?";
+                  }
                 } else {
                   tmp = "Please provide a number instead of " + args[1];
                 }
@@ -155,13 +201,16 @@ function main(args) {
               } else {
                 var num$1 = Core__Int.fromString(xd$1, undefined);
                 if (num$1 !== undefined) {
-                  var msg$2 = getMessageWithId(dat, num$1)[0];
+                  var msg$2 = getMessageWithId(dat, num$1).at(0);
                   if (msg$2 !== undefined) {
                     var messagesWithRemovedMessage$1 = dataWithRemovedMessageById(dat, msg$2.id);
                     channelCustomData.set("OOC_MSGS", messagesWithRemovedMessage$1);
                     tmp = "Succesfully removed message with id " + msg$2.id.toString();
                   } else {
-                    tmp = "Couldn't find a message with that id. Current id is " + dat.currentId.toString();
+                    var closestNumber$1 = getClosestId(dat.messages.map(function (m) {
+                              return m.id;
+                            }), num$1);
+                    tmp = isInMiddle(dat, num$1) ? "Looks like that message has been deleted already. Did you mean #" + closestNumber$1.toString() + " ?" : "Couldn't find a message with that id. Did you mean #" + closestNumber$1.toString() + " ?";
                   }
                 } else {
                   tmp = "Please provide a number instead of " + args[1];
@@ -190,6 +239,8 @@ export {
   getMessageWithId ,
   getMaxIdInData ,
   getLastMessage ,
+  isInMiddle ,
+  getClosestId ,
   noPinnedMessages ,
   main ,
 }

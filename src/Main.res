@@ -56,7 +56,11 @@ let getMessageWithId = (data: ChannelCustomData.oocData, id) => {
 }
 
 let getMaxIdInData = (data: ChannelCustomData.oocData) => {
-  data.messages->Array.map(m => m.id->Int.toFloat)->Math.maxMany->Float.toInt
+  if data.messages->Array.at(data.currentId) != None {
+    data.currentId
+  } else {
+    data.messages->Array.map(m => m.id->Int.toFloat)->Math.maxMany->Float.toInt
+  }
 }
 
 let getLastMessage = (data: ChannelCustomData.oocData) => {
@@ -64,6 +68,40 @@ let getLastMessage = (data: ChannelCustomData.oocData) => {
 
   getMessageWithId(data, maxId)
 }
+
+let isInMiddle = (data: ChannelCustomData.oocData, idx: int) => {
+  let maxId = getMaxIdInData(data)
+
+  idx < maxId && idx != 0
+}
+
+let getClosestId: (array<int>, int) => int = %raw(` 
+(arr, target) => {
+  let left = 0;
+  let right = arr.length - 1;
+  let closest = arr[0];
+
+  while (left <= right) {
+      const mid = Math.floor((left + right) / 2);
+
+      if (Math.abs(arr[mid] - target) < Math.abs(closest - target)) {
+          closest = arr[mid];
+      }
+
+      if (arr[mid] === target) {
+          return arr[mid];
+      }
+
+      if (arr[mid] < target) {
+          left = mid + 1;
+      } else {
+          right = mid - 1;
+      }
+  }
+
+  return closest;
+}
+`)
 
 let noPinnedMessages = "There aren't any pinned messages yet. You should try pinning something with $$ooc add […]"
 
@@ -74,11 +112,14 @@ let main = (args: array<string>): string => {
 
   let output = switch data {
   | Error(NoMessages) => "It seems like this command is being ran for the first time. Try adding some messages with $$ooc add […]"
-  | Ok(dat) => switch arg {
+  | Ok(dat) =>
+    switch arg {
     | None => getRandomMessage(dat)->formatRandomMessage
-    | Some(ar) => switch ar {
+    | Some(ar) =>
+      switch ar {
       | "pin"
-      | "add" => if args->Array.length == 1 {
+      | "add" =>
+        if args->Array.length == 1 {
           "You didn't actually provide a message. Add some text after that"
         } else {
           let messageText = args->Array.sliceToEnd(~start=1)->Array.join(" ")
@@ -89,7 +130,8 @@ let main = (args: array<string>): string => {
 
           `Pinned the message with ID: ${newData.currentId->Int.toString}`
         }
-      | "get" => if dat.messages->Array.length == 0 {
+      | "get" =>
+        if dat.messages->Array.length == 0 {
           noPinnedMessages
         } else if args->Array.length == 1 {
           "You should provide an ID, like $$ooc get 1. Did you want to get a random message? Try doing $$ooc"
@@ -99,17 +141,23 @@ let main = (args: array<string>): string => {
               let msg = dat->getLastMessage->Array.at(0)
               switch msg {
               | Some(m) => m->formatMessageWithMsg
-              | None => "Trying to get the message with the last id but found multiple. Please report this to @treuks"
+              | None => "Tried to get a message that exists, but actually it doesn't exist. Please report this to @treuks"
               }
             }
-          | xd => switch xd->Int.fromString {
+          | xd =>
+            switch xd->Int.fromString {
             | None => `Please provide a number instead of ${args[1]->Option.getUnsafe}`
             | Some(num) => {
-                let msg = dat->getMessageWithId(num)->Array.get(0)
+                let msg = dat->getMessageWithId(num)->Array.at(0)
 
                 switch msg {
                 | None =>
-                  `Couldn't find a message with that id. Current id is ${dat.currentId->Int.toString}`
+                  let closestNumber = getClosestId(dat.messages->Array.map(m => m.id), num)
+                  if isInMiddle(dat, num) {
+                    `Looks like that message has been deleted. Did you mean #${closestNumber->Int.toString} ?`
+                  } else {
+                    `Couldn't find a message with that id. Did you mean #${closestNumber->Int.toString} ?`
+                  }
                 | Some(m) => m->formatMessageWithMsg
                 }
               }
@@ -118,7 +166,8 @@ let main = (args: array<string>): string => {
         }
       | "unpin"
       | "delete"
-      | "remove" => if dat.messages->Array.length == 0 {
+      | "remove" =>
+        if dat.messages->Array.length == 0 {
           noPinnedMessages
         } else if args->Array.length == 1 {
           "You should provide an ID, like $$ooc remove 1"
@@ -135,14 +184,20 @@ let main = (args: array<string>): string => {
                 "Couldn't remove message with last ID. Report this to @treuks"
               }
             }
-          | xd => switch xd->Int.fromString {
+          | xd =>
+            switch xd->Int.fromString {
             | None => `Please provide a number instead of ${args[1]->Option.getUnsafe}`
             | Some(num) => {
-                let msg = dat->getMessageWithId(num)->Array.get(0)
+                let msg = dat->getMessageWithId(num)->Array.at(0)
 
                 switch msg {
                 | None =>
-                  `Couldn't find a message with that id. Current id is ${dat.currentId->Int.toString}`
+                  let closestNumber = getClosestId(dat.messages->Array.map(m => m.id), num)
+                  if isInMiddle(dat, num) {
+                    `Looks like that message has been deleted already. Did you mean #${closestNumber->Int.toString} ?`
+                  } else {
+                    `Couldn't find a message with that id. Did you mean #${closestNumber->Int.toString} ?`
+                  }
                 | Some(m) => {
                     let messagesWithRemovedMessage = dataWithRemovedMessageById(dat, m.id)
 
@@ -155,7 +210,8 @@ let main = (args: array<string>): string => {
             }
           }
         }
-      | "search" => if dat.messages->Array.length == 0 {
+      | "search" =>
+        if dat.messages->Array.length == 0 {
           noPinnedMessages
         } else if args->Array.length == 1 {
           "You need to put a string to search for after this"
