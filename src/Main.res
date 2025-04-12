@@ -250,7 +250,7 @@ let main = (args: array<string>): string => {
               let message = dat.messages->Array.getUnsafe(searchMsg.index)
 
               formatMessageWithMsg(message)
-            } else if searches->Array.length > 1 {
+            } else {
               let allChoices = searches->Array.length - 1
 
               let randomIndex = Utils.random(0, allChoices)
@@ -271,8 +271,6 @@ let main = (args: array<string>): string => {
               }
               
               result
-            } else {
-              "Couldn't find anything similar enough"
             }
           }
           }

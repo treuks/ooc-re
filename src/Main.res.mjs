@@ -184,7 +184,7 @@ function main(args) {
                   var searchMsg = searched[0];
                   var message = dat.messages[searchMsg.index];
                   tmp = formatMessageWithMsg(message);
-                } else if (searched.length > 1) {
+                } else {
                   var allChoices = searched.length - 1 | 0;
                   var randomIndex = utils.random(0, allChoices);
                   var choiceThing = "[" + (randomIndex + 1 | 0).toString() + "/" + searched.length.toString() + "]";
@@ -195,8 +195,6 @@ function main(args) {
                   } else {
                     tmp = "Couldn't get a valid random search out of the options";
                   }
-                } else {
-                  tmp = "Couldn't find anything similar enough";
                 }
               } else {
                 tmp = "Couldn't find anything similar enough.";
