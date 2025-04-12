@@ -45,11 +45,21 @@ module Utils = {
   external unping: string => string = "unping"
 
   @scope("utils") @val @return(nullable)
-  external selectClosestString: (
+  external selectOneClosestString: (
     string,
     array<string>,
     @as(json`{ ignoreCase: true, descriptor: true }`) _,
   ) => option<closestStringDescriptor> = "selectClosestString"
+
+  @scope("utils") @val @return(nullable)
+  external selectAllClosestStrings: (
+    string,
+    array<string>,
+    @as(json`{ ignoreCase: true, fullResult: true }`) _,
+  ) => option<array<closestStringDescriptor>> = "selectClosestString"
+
+  @scope("utils") @val
+  external random: (int, int) => int = "random"
 }
 
 @val

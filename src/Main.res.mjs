@@ -7,7 +7,7 @@ import * as Caml_splice_call from "rescript/lib/es6/caml_splice_call.js";
 
 function getRandomMessage(data) {
   var messages = data.messages;
-  var randomNumber = Math.random() * messages.length | 0;
+  var randomNumber = utils.random(0, messages.length - 1 | 0);
   return messages[randomNumber];
 }
 
@@ -106,6 +106,28 @@ var getClosestId = ((arr, target) => {
   return closest;
 });
 
+function getCloseSearchResults(data, needle) {
+  var haystack = data.messages.map(function (msg) {
+        return msg.text;
+      });
+  var searchResults = utils.selectClosestString(needle, haystack, { ignoreCase: true, fullResult: true });
+  if (searchResults == null) {
+    return ;
+  }
+  var closestResults = searchResults.filter(function (res) {
+        if (res.score > 0.5) {
+          return res.includes;
+        } else {
+          return false;
+        }
+      });
+  var match = closestResults.length;
+  if (match !== 0) {
+    return closestResults;
+  }
+  
+}
+
 var noPinnedMessages = "There aren't any pinned messages yet. You should try pinning something with $$ooc add […]";
 
 function main(args) {
@@ -156,11 +178,29 @@ function main(args) {
               tmp = "You need to put a string to search for after this";
             } else {
               var messageText = args.slice(1).join(" ");
-              var allMessages = dat.messages.map(function (m) {
-                    return m.text;
-                  });
-              var searched = utils.selectClosestString(messageText, allMessages, { ignoreCase: true, descriptor: true });
-              tmp = (searched == null) ? "Couldn't find anything similar enough." : formatMessageWithMsg(dat.messages[searched.index]);
+              var searched = getCloseSearchResults(dat, messageText);
+              if (searched !== undefined) {
+                if (searched.length === 1) {
+                  var searchMsg = searched[0];
+                  var message = dat.messages[searchMsg.index];
+                  tmp = formatMessageWithMsg(message);
+                } else if (searched.length > 1) {
+                  var allChoices = searched.length - 1 | 0;
+                  var randomIndex = utils.random(0, allChoices);
+                  var choiceThing = "[" + (randomIndex + 1 | 0).toString() + "/" + searched.length.toString() + "]";
+                  var searchedMessage = searched[randomIndex];
+                  if (searchedMessage !== undefined) {
+                    var message$1 = dat.messages[searchedMessage.index];
+                    tmp = message$1 !== undefined ? choiceThing + " " + formatMessageWithMsg(message$1) : "Couldn't index into the array of messages";
+                  } else {
+                    tmp = "Couldn't get a valid random search out of the options";
+                  }
+                } else {
+                  tmp = "Couldn't find anything similar enough";
+                }
+              } else {
+                tmp = "Couldn't find anything similar enough.";
+              }
             }
             break;
         case "delete" :
@@ -241,6 +281,7 @@ export {
   getLastMessage ,
   isInMiddle ,
   getClosestId ,
+  getCloseSearchResults ,
   noPinnedMessages ,
   main ,
 }

@@ -3,7 +3,7 @@ open Supibot
 let getRandomMessage = (data: ChannelCustomData.oocData) => {
   let messages = data.messages
 
-  let randomNumber = (Math.random() *. messages->Array.length->Int.toFloat)->Float.toInt
+  let randomNumber = Utils.random(0, (messages->Array.length - 1))
 
   let randomMessage = messages->Array.getUnsafe(randomNumber)
 
@@ -102,6 +102,28 @@ let getClosestId: (array<int>, int) => int = %raw(`
   return closest;
 }
 `)
+
+let getCloseSearchResults = (data: ChannelCustomData.oocData, needle: string) => {
+  let haystack = data.messages->Array.map(msg => msg.text)
+
+  let searchResults = Utils.selectAllClosestStrings(needle, haystack)
+
+  let result = {
+    switch searchResults {
+    | None => None
+    | Some(results) => {
+        let closestResults = results->Array.filter(res => res.score > 0.5 && res.includes)
+
+        switch closestResults->Array.length {
+        | 0 => None
+        | _ => Some(closestResults)
+        }
+      }
+    }
+  }
+
+  result
+}
 
 let noPinnedMessages = "There aren't any pinned messages yet. You should try pinning something with $$ooc add […]"
 
@@ -218,13 +240,41 @@ let main = (args: array<string>): string => {
         } else {
           let messageText = args->Array.sliceToEnd(~start=1)->Array.join(" ")
 
-          let allMessages = dat.messages->Array.map(m => m.text)
-
-          let searched = Utils.selectClosestString(messageText, allMessages)
+          let searched = getCloseSearchResults(dat, messageText)
 
           switch searched {
           | None => "Couldn't find anything similar enough."
-          | Some(ms) => formatMessageWithMsg(dat.messages->Array.getUnsafe(ms.index))
+          | Some(searches) => {
+            if searches->Array.length == 1 {
+              let searchMsg = searches->Array.getUnsafe(0)
+              let message = dat.messages->Array.getUnsafe(searchMsg.index)
+
+              formatMessageWithMsg(message)
+            } else if searches->Array.length > 1 {
+              let allChoices = searches->Array.length - 1
+
+              let randomIndex = Utils.random(0, allChoices)
+
+              let choiceThing = `[${(randomIndex + 1)->Int.toString}/${searches->Array.length->Int.toString}]`
+
+              let searchedMessage = searches->Array.get(randomIndex)
+              let result = switch searchedMessage {
+              | None => "Couldn't get a valid random search out of the options"
+              | Some(m) => {
+                let message = dat.messages->Array.get(m.index)
+
+                switch message {
+                  | Some(mem) => `${choiceThing} ${formatMessageWithMsg(mem)}`
+                  | None => "Couldn't index into the array of messages"
+                }
+              }  
+              }
+              
+              result
+            } else {
+              "Couldn't find anything similar enough"
+            }
+          }
           }
         }
       | _ => "Sorry I don't understand what you're trying to do :( | Available commands: [add, remove, get, search]"
