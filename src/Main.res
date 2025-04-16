@@ -3,18 +3,14 @@ open Supibot
 let getRandomMessage = (data: ChannelCustomData.oocData) => {
   let messages = data.messages
 
-  let randomNumber = Utils.random(0, (messages->Array.length - 1))
+  let randomNumber = Utils.random(0, messages->Array.length - 1)
 
-  let randomMessage = messages->Array.getUnsafe(randomNumber)
+  let randomMessage =
+    messages
+    ->Array.get(randomNumber)
+    ->Option.getExn(~message="Couldn't get a random message from the messages")
 
   randomMessage
-}
-
-let formatRandomMessage = (msg: ChannelCustomData.oocMessage) => {
-  // HACK: Sweden uses the year-month-day format I want
-  let formattedDate = msg.date->Date.fromString->Date.toLocaleDateStringWithLocale("sv")
-
-  `🎲 (#${msg.id->Int.toString}) [${formattedDate}]: ${msg.text}`
 }
 
 let formatMessageWithMsg = (msg: ChannelCustomData.oocMessage) => {
@@ -22,6 +18,10 @@ let formatMessageWithMsg = (msg: ChannelCustomData.oocMessage) => {
   let formattedDate = msg.date->Date.fromString->Date.toLocaleDateStringWithLocale("sv")
 
   `(#${msg.id->Int.toString}) [${formattedDate}]: ${msg.text}`
+}
+
+let formatRandomMessage = (msg: ChannelCustomData.oocMessage) => {
+  "🎲 " ++ formatMessageWithMsg(msg)
 }
 
 let dataWithAddedMessage = (data: ChannelCustomData.oocData, msg: string, adder: string) => {
@@ -112,7 +112,7 @@ let getCloseSearchResults = (data: ChannelCustomData.oocData, needle: string) =>
     switch searchResults {
     | None => None
     | Some(results) => {
-        let closestResults = results->Array.filter(res => res.score > 0.5 && res.includes)
+        let closestResults = results->Array.filter(res => res.includes)
 
         switch closestResults->Array.length {
         | 0 => None
@@ -244,10 +244,16 @@ let main = (args: array<string>): string => {
 
           switch searched {
           | None => "Couldn't find anything similar enough."
-          | Some(searches) => {
+          | Some(searches) =>
             if searches->Array.length == 1 {
-              let searchMsg = searches->Array.getUnsafe(0)
-              let message = dat.messages->Array.getUnsafe(searchMsg.index)
+              let searchMsg =
+                searches
+                ->Array.get(0)
+                ->Option.getExn(~message="Couldn't index into the searches array")
+              let message =
+                dat.messages
+                ->Array.get(searchMsg.index)
+                ->Option.getExn(~message="Couldn't index into the messages array")
 
               formatMessageWithMsg(message)
             } else {
@@ -255,24 +261,23 @@ let main = (args: array<string>): string => {
 
               let randomIndex = Utils.random(0, allChoices)
 
-              let choiceThing = `[${(randomIndex + 1)->Int.toString}/${searches->Array.length->Int.toString}]`
+              let leftNum = (randomIndex + 1)->Int.toString
+              let rightNum = searches->Array.length->Int.toString
 
-              let searchedMessage = searches->Array.get(randomIndex)
-              let result = switch searchedMessage {
-              | None => "Couldn't get a valid random search out of the options"
-              | Some(m) => {
-                let message = dat.messages->Array.get(m.index)
+              let choiceThing = `[${leftNum}/${rightNum}]`
 
-                switch message {
-                  | Some(mem) => `${choiceThing} ${formatMessageWithMsg(mem)}`
-                  | None => "Couldn't index into the array of messages"
-                }
-              }  
-              }
-              
-              result
+              let searchedMessage =
+                searches
+                ->Array.get(randomIndex)
+                ->Option.getExn(~message="Couldn't get a valid random search")
+
+              let message =
+                dat.messages
+                ->Array.get(searchedMessage.index)
+                ->Option.getExn(~message="Couldn't index into the array of messages")
+
+              `${choiceThing} ${formatMessageWithMsg(message)}`
             }
-          }
           }
         }
       | _ => "Sorry I don't understand what you're trying to do :( | Available commands: [add, remove, get, search]"

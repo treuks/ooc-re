@@ -3,22 +3,22 @@
 import * as Supibot from "./Supibot.res.mjs";
 import * as Core__Int from "@rescript/core/src/Core__Int.res.mjs";
 import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
+import * as Core__Option from "@rescript/core/src/Core__Option.res.mjs";
 import * as Caml_splice_call from "rescript/lib/es6/caml_splice_call.js";
 
 function getRandomMessage(data) {
   var messages = data.messages;
   var randomNumber = utils.random(0, messages.length - 1 | 0);
-  return messages[randomNumber];
-}
-
-function formatRandomMessage(msg) {
-  var formattedDate = new Date(msg.date).toLocaleDateString("sv");
-  return "🎲 (#" + msg.id.toString() + ") [" + formattedDate + "]: " + msg.text;
+  return Core__Option.getExn(messages[randomNumber], "Couldn't get a random message from the messages");
 }
 
 function formatMessageWithMsg(msg) {
   var formattedDate = new Date(msg.date).toLocaleDateString("sv");
   return "(#" + msg.id.toString() + ") [" + formattedDate + "]: " + msg.text;
+}
+
+function formatRandomMessage(msg) {
+  return "🎲 " + formatMessageWithMsg(msg);
 }
 
 function dataWithAddedMessage(data, msg, adder) {
@@ -115,11 +115,7 @@ function getCloseSearchResults(data, needle) {
     return ;
   }
   var closestResults = searchResults.filter(function (res) {
-        if (res.score > 0.5) {
-          return res.includes;
-        } else {
-          return false;
-        }
+        return res.includes;
       });
   var match = closestResults.length;
   if (match !== 0) {
@@ -181,20 +177,18 @@ function main(args) {
               var searched = getCloseSearchResults(dat, messageText);
               if (searched !== undefined) {
                 if (searched.length === 1) {
-                  var searchMsg = searched[0];
-                  var message = dat.messages[searchMsg.index];
+                  var searchMsg = Core__Option.getExn(searched[0], "Couldn't index into the searches array");
+                  var message = Core__Option.getExn(dat.messages[searchMsg.index], "Couldn't index into the messages array");
                   tmp = formatMessageWithMsg(message);
                 } else {
                   var allChoices = searched.length - 1 | 0;
                   var randomIndex = utils.random(0, allChoices);
-                  var choiceThing = "[" + (randomIndex + 1 | 0).toString() + "/" + searched.length.toString() + "]";
-                  var searchedMessage = searched[randomIndex];
-                  if (searchedMessage !== undefined) {
-                    var message$1 = dat.messages[searchedMessage.index];
-                    tmp = message$1 !== undefined ? choiceThing + " " + formatMessageWithMsg(message$1) : "Couldn't index into the array of messages";
-                  } else {
-                    tmp = "Couldn't get a valid random search out of the options";
-                  }
+                  var leftNum = (randomIndex + 1 | 0).toString();
+                  var rightNum = searched.length.toString();
+                  var choiceThing = "[" + leftNum + "/" + rightNum + "]";
+                  var searchedMessage = Core__Option.getExn(searched[randomIndex], "Couldn't get a valid random search");
+                  var message$1 = Core__Option.getExn(dat.messages[searchedMessage.index], "Couldn't index into the array of messages");
+                  tmp = choiceThing + " " + formatMessageWithMsg(message$1);
                 }
               } else {
                 tmp = "Couldn't find anything similar enough.";
@@ -269,8 +263,8 @@ function main(args) {
 
 export {
   getRandomMessage ,
-  formatRandomMessage ,
   formatMessageWithMsg ,
+  formatRandomMessage ,
   dataWithAddedMessage ,
   dataWithRemovedMessageById ,
   updatePinnedDataWith ,

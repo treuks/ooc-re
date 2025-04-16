@@ -60,6 +60,33 @@ module Utils = {
 
   @scope("utils") @val
   external random: (int, int) => int = "random"
+
+  type parameterTypeKeys =
+    | @as("string") String
+    | @as("number") Number
+    | @as("boolean") Boolean
+
+  @unboxed
+  type parameterType =
+    | String(string)
+    | Number(float)
+    | Boolean(bool)
+
+  @tag("success")
+  type parseResult =
+    | @as(true) Success({parameters: Js.Dict.t<parameterType>})
+    | @as(false) Failure({reply: string})
+
+  type parameterDefinition = {
+    name: string,
+    @as("type") type_: parameterTypeKeys,
+  }
+
+  @scope("utils") @val
+  external parseParametersFromArguments: (
+    array<parameterDefinition>,
+    array<string>,
+  ) => parseResult = "parseParametersFromArguments"
 }
 
 @val
