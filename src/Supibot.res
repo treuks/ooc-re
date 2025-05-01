@@ -10,23 +10,33 @@ module ChannelCustomData = {
   @scope("channelCustomData") @val
   external set: (string, 'a) => unit = "set"
 
-  type oocError = NoMessages
-  // | CorruptData
+  type oocError =
+    | NoMessages
+    | NoData
 
   let getOoc = (): result<oocData, oocError> => {
     let data = get(prefix)
 
-    let cdata = data->Option.getOr({currentId: 0, messages: []})
-
-    let result = {
-      if cdata.messages->Array.length == 0 {
+    switch data {
+    | Some(d) =>
+      if d.messages->Array.length == 0 {
         Error(NoMessages)
       } else {
-        Ok(cdata)
+        Ok(d)
       }
+    | None => Error(NoData)
     }
+  }
 
-    result
+  let initOoc = () => {
+    set(prefix, {currentId: 0, messages: []})
+  }
+
+  let oocErrorToStr = (err: oocError) => {
+    switch err {
+    | NoMessages => "It seems like there is initialised data but no messages. Try adding some messages with $$ooc add […]"
+    | NoData => "Seems like you're running the command for the first time, I initialised some data, try adding a message with $$ooc add"
+    }
   }
 }
 

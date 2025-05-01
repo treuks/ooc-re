@@ -132,111 +132,139 @@ let main = (args: array<string>): string => {
 
   let arg = args[0]
 
-  let output = switch data {
-  | Error(NoMessages) => "It seems like this command is being ran for the first time. Try adding some messages with $$ooc add […]"
-  | Ok(dat) =>
-    switch arg {
-    | None => getRandomMessage(dat)->formatRandomMessage
-    | Some(ar) =>
-      switch ar {
-      | "pin"
-      | "add" =>
-        if args->Array.length == 1 {
-          "You didn't actually provide a message. Add some text after that"
-        } else {
-          let messageText = args->Array.sliceToEnd(~start=1)->Array.join(" ")
+  let output = switch arg {
+  | None => {
+      let res = data->Result.mapError(oocError => ChannelCustomData.oocErrorToStr(oocError))
+      switch res {
+      | Ok(dat) => getRandomMessage(dat)->formatRandomMessage
+      | Error(str) => str
+      }
+    }
+  | Some(ar) =>
+    switch ar {
+    | "pin"
+    | "add" =>
+      if args->Array.length == 1 {
+        "You didn't actually provide a message. Add some text after that"
+      } else {
+        let messageText = args->Array.sliceToEnd(~start=1)->Array.join(" ")
 
-          let newData = dataWithAddedMessage(dat, messageText, executor)
+        switch data {
+        | Ok(dat) => {
+            let newData = dataWithAddedMessage(dat, messageText, executor)
 
-          updatePinnedDataWith(newData)
+            updatePinnedDataWith(newData)
 
-          `Pinned the message with ID: ${newData.currentId->Int.toString}`
+            `Pinned the message with ID: ${newData.currentId->Int.toString}`
+          }
+        | Error(_) => {
+            let emptyData: ChannelCustomData.oocData = {currentId: 0, messages: []}
+
+            let newData = dataWithAddedMessage(emptyData, messageText, executor)
+
+            updatePinnedDataWith(newData)
+
+            `Pinned the message with ID: ${newData.currentId->Int.toString}`
+          }
         }
-      | "get" =>
-        if dat.messages->Array.length == 0 {
-          noPinnedMessages
-        } else if args->Array.length == 1 {
-          "You should provide an ID, like $$ooc get 1. Did you want to get a random message? Try doing $$ooc"
-        } else {
-          switch args->Array.getUnsafe(1) {
-          | "last" => {
-              let msg = dat->getLastMessage->Array.at(0)
-              switch msg {
-              | Some(m) => m->formatMessageWithMsg
-              | None => "Tried to get a message that exists, but actually it doesn't exist. Please report this to @treuks"
-              }
-            }
-          | xd =>
-            switch xd->Int.fromString {
-            | None => `Please provide a number instead of ${args[1]->Option.getUnsafe}`
-            | Some(num) => {
-                let msg = dat->getMessageWithId(num)->Array.at(0)
-
+      }
+    | "get" => {
+        let res = data->Result.mapError(oocError => ChannelCustomData.oocErrorToStr(oocError))
+        switch res {
+        | Error(str) => str
+        | Ok(dat) =>
+          if args->Array.length == 1 {
+            "You should provide an ID, like $$ooc get 1. Did you want to get a random message? Try doing $$ooc"
+          } else {
+            switch args->Array.getUnsafe(1) {
+            | "latest"
+            | "last" => {
+                let msg = dat->getLastMessage->Array.at(0)
                 switch msg {
-                | None =>
-                  let closestNumber = getClosestId(dat.messages->Array.map(m => m.id), num)
-                  if isInMiddle(dat, num) {
-                    `Looks like that message has been deleted. Did you mean #${closestNumber->Int.toString} ?`
-                  } else {
-                    `Couldn't find a message with that id. Did you mean #${closestNumber->Int.toString} ?`
-                  }
                 | Some(m) => m->formatMessageWithMsg
+                | None => "Tried to get a message that exists, but actually it doesn't exist. Please report this to @treuks"
                 }
               }
-            }
-          }
-        }
-      | "unpin"
-      | "delete"
-      | "remove" =>
-        if dat.messages->Array.length == 0 {
-          noPinnedMessages
-        } else if args->Array.length == 1 {
-          "You should provide an ID, like $$ooc remove 1"
-        } else {
-          switch args->Array.getUnsafe(1) {
-          | "last" => {
-              let maxId = getMaxIdInData(dat)
-              let messagesWithRemovedMessage = dataWithRemovedMessageById(dat, maxId)
+            | xd =>
+              switch xd->Int.fromString {
+              | None => `Please provide a number instead of ${args[1]->Option.getUnsafe}`
+              | Some(num) => {
+                  let msg = dat->getMessageWithId(num)->Array.at(0)
 
-              if messagesWithRemovedMessage.messages->Array.length < dat.messages->Array.length {
-                updatePinnedDataWith(messagesWithRemovedMessage)
-                `Succesfully removed last message (#${maxId->Int.toString})`
-              } else {
-                "Couldn't remove message with last ID. Report this to @treuks"
-              }
-            }
-          | xd =>
-            switch xd->Int.fromString {
-            | None => `Please provide a number instead of ${args[1]->Option.getUnsafe}`
-            | Some(num) => {
-                let msg = dat->getMessageWithId(num)->Array.at(0)
-
-                switch msg {
-                | None =>
-                  let closestNumber = getClosestId(dat.messages->Array.map(m => m.id), num)
-                  if isInMiddle(dat, num) {
-                    `Looks like that message has been deleted already. Did you mean #${closestNumber->Int.toString} ?`
-                  } else {
-                    `Couldn't find a message with that id. Did you mean #${closestNumber->Int.toString} ?`
-                  }
-                | Some(m) => {
-                    let messagesWithRemovedMessage = dataWithRemovedMessageById(dat, m.id)
-
-                    updatePinnedDataWith(messagesWithRemovedMessage)
-
-                    `Succesfully removed message with id ${m.id->Int.toString}`
+                  switch msg {
+                  | None =>
+                    let closestNumber = getClosestId(dat.messages->Array.map(m => m.id), num)
+                    if isInMiddle(dat, num) {
+                      `Looks like that message has been deleted. Did you mean #${closestNumber->Int.toString} ?`
+                    } else {
+                      `Couldn't find a message with that id. Did you mean #${closestNumber->Int.toString} ?`
+                    }
+                  | Some(m) => m->formatMessageWithMsg
                   }
                 }
               }
             }
           }
         }
-      | "search" =>
-        if dat.messages->Array.length == 0 {
-          noPinnedMessages
-        } else if args->Array.length == 1 {
-          "You need to put a string to search for after this"
+      }
+    | "unpin"
+    | "delete"
+    | "remove" => {
+        let res = data->Result.mapError(err => ChannelCustomData.oocErrorToStr(err))
+        switch res {
+        | Error(s) => s
+        | Ok(dat) =>
+          if args->Array.length == 1 {
+            "You should provide an ID, like $$ooc remove 1"
+          } else {
+            switch args->Array.getUnsafe(1) {
+            | "latest"
+            | "last" => {
+                let maxId = getMaxIdInData(dat)
+                let messagesWithRemovedMessage = dataWithRemovedMessageById(dat, maxId)
+
+                if messagesWithRemovedMessage.messages->Array.length < dat.messages->Array.length {
+                  updatePinnedDataWith(messagesWithRemovedMessage)
+                  `Succesfully removed last message (#${maxId->Int.toString})`
+                } else {
+                  "Couldn't remove message with last ID. Report this to @treuks"
+                }
+              }
+            | xd =>
+              switch xd->Int.fromString {
+              | None => `Please provide a number instead of ${args[1]->Option.getUnsafe}`
+              | Some(num) => {
+                  let msg = dat->getMessageWithId(num)->Array.at(0)
+
+                  switch msg {
+                  | None =>
+                    let closestNumber = getClosestId(dat.messages->Array.map(m => m.id), num)
+                    if isInMiddle(dat, num) {
+                      `Looks like that message has been deleted already. Did you mean #${closestNumber->Int.toString} ?`
+                    } else {
+                      `Couldn't find a message with that id. Did you mean #${closestNumber->Int.toString} ?`
+                    }
+                  | Some(m) => {
+                      let messagesWithRemovedMessage = dataWithRemovedMessageById(dat, m.id)
+
+                      updatePinnedDataWith(messagesWithRemovedMessage)
+
+                      `Succesfully removed message with id ${m.id->Int.toString}`
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    | "search" =>
+      let res = data->Result.mapError(oocError => ChannelCustomData.oocErrorToStr(oocError))
+      switch res {
+      | Error(str) => str
+      | Ok(dat) =>
+        if args->Array.length == 1 {
+          "You need to put a string to search for after this."
         } else {
           let messageText = args->Array.sliceToEnd(~start=1)->Array.join(" ")
 
@@ -280,8 +308,8 @@ let main = (args: array<string>): string => {
             }
           }
         }
-      | _ => "Sorry I don't understand what you're trying to do :( | Available commands: [add, remove, get, search]"
       }
+    | _ => "Sorry I don't understand what you're trying to do :( | Available commands: [add, remove, get, search]"
     }
   }
 

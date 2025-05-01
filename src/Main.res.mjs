@@ -4,6 +4,7 @@ import * as Supibot from "./Supibot.res.mjs";
 import * as Core__Int from "@rescript/core/src/Core__Int.res.mjs";
 import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
 import * as Core__Option from "@rescript/core/src/Core__Option.res.mjs";
+import * as Core__Result from "@rescript/core/src/Core__Result.res.mjs";
 import * as Caml_splice_call from "rescript/lib/es6/caml_splice_call.js";
 
 function getRandomMessage(data) {
@@ -124,61 +125,74 @@ function getCloseSearchResults(data, needle) {
   
 }
 
-var noPinnedMessages = "There aren't any pinned messages yet. You should try pinning something with $$ooc add […]";
-
 function main(args) {
   var data = Supibot.ChannelCustomData.getOoc();
   var arg = args[0];
   var tmp;
-  if (data.TAG === "Ok") {
-    var dat = data._0;
-    if (arg !== undefined) {
-      var exit = 0;
-      switch (arg) {
-        case "get" :
-            if (dat.messages.length === 0) {
-              tmp = noPinnedMessages;
-            } else if (args.length === 1) {
+  if (arg !== undefined) {
+    var exit = 0;
+    switch (arg) {
+      case "get" :
+          var res = Core__Result.mapError(data, (function (oocError) {
+                  return Supibot.ChannelCustomData.oocErrorToStr(oocError);
+                }));
+          if (res.TAG === "Ok") {
+            if (args.length === 1) {
               tmp = "You should provide an ID, like $$ooc get 1. Did you want to get a random message? Try doing $$ooc";
             } else {
+              var dat = res._0;
               var xd = args[1];
-              if (xd === "last") {
-                var msg = getLastMessage(dat).at(0);
-                tmp = msg !== undefined ? formatMessageWithMsg(msg) : "Tried to get a message that exists, but actually it doesn't exist. Please report this to @treuks";
-              } else {
-                var num = Core__Int.fromString(xd, undefined);
-                if (num !== undefined) {
-                  var msg$1 = getMessageWithId(dat, num).at(0);
-                  if (msg$1 !== undefined) {
-                    tmp = formatMessageWithMsg(msg$1);
+              var exit$1 = 0;
+              switch (xd) {
+                case "last" :
+                case "latest" :
+                    exit$1 = 3;
+                    break;
+                default:
+                  var num = Core__Int.fromString(xd, undefined);
+                  if (num !== undefined) {
+                    var msg = getMessageWithId(dat, num).at(0);
+                    if (msg !== undefined) {
+                      tmp = formatMessageWithMsg(msg);
+                    } else {
+                      var closestNumber = getClosestId(dat.messages.map(function (m) {
+                                return m.id;
+                              }), num);
+                      tmp = isInMiddle(dat, num) ? "Looks like that message has been deleted. Did you mean #" + closestNumber.toString() + " ?" : "Couldn't find a message with that id. Did you mean #" + closestNumber.toString() + " ?";
+                    }
                   } else {
-                    var closestNumber = getClosestId(dat.messages.map(function (m) {
-                              return m.id;
-                            }), num);
-                    tmp = isInMiddle(dat, num) ? "Looks like that message has been deleted. Did you mean #" + closestNumber.toString() + " ?" : "Couldn't find a message with that id. Did you mean #" + closestNumber.toString() + " ?";
+                    tmp = "Please provide a number instead of " + args[1];
                   }
-                } else {
-                  tmp = "Please provide a number instead of " + args[1];
-                }
               }
+              if (exit$1 === 3) {
+                var msg$1 = getLastMessage(dat).at(0);
+                tmp = msg$1 !== undefined ? formatMessageWithMsg(msg$1) : "Tried to get a message that exists, but actually it doesn't exist. Please report this to @treuks";
+              }
+              
             }
-            break;
-        case "add" :
-        case "pin" :
-            exit = 1;
-            break;
-        case "search" :
-            if (dat.messages.length === 0) {
-              tmp = noPinnedMessages;
-            } else if (args.length === 1) {
-              tmp = "You need to put a string to search for after this";
+          } else {
+            tmp = res._0;
+          }
+          break;
+      case "add" :
+      case "pin" :
+          exit = 1;
+          break;
+      case "search" :
+          var res$1 = Core__Result.mapError(data, (function (oocError) {
+                  return Supibot.ChannelCustomData.oocErrorToStr(oocError);
+                }));
+          if (res$1.TAG === "Ok") {
+            if (args.length === 1) {
+              tmp = "You need to put a string to search for after this.";
             } else {
+              var dat$1 = res$1._0;
               var messageText = args.slice(1).join(" ");
-              var searched = getCloseSearchResults(dat, messageText);
+              var searched = getCloseSearchResults(dat$1, messageText);
               if (searched !== undefined) {
                 if (searched.length === 1) {
                   var searchMsg = Core__Option.getExn(searched[0], "Couldn't index into the searches array");
-                  var message = Core__Option.getExn(dat.messages[searchMsg.index], "Couldn't index into the messages array");
+                  var message = Core__Option.getExn(dat$1.messages[searchMsg.index], "Couldn't index into the messages array");
                   tmp = formatMessageWithMsg(message);
                 } else {
                   var allChoices = searched.length - 1 | 0;
@@ -187,79 +201,109 @@ function main(args) {
                   var rightNum = searched.length.toString();
                   var choiceThing = "[" + leftNum + "/" + rightNum + "]";
                   var searchedMessage = Core__Option.getExn(searched[randomIndex], "Couldn't get a valid random search");
-                  var message$1 = Core__Option.getExn(dat.messages[searchedMessage.index], "Couldn't index into the array of messages");
+                  var message$1 = Core__Option.getExn(dat$1.messages[searchedMessage.index], "Couldn't index into the array of messages");
                   tmp = choiceThing + " " + formatMessageWithMsg(message$1);
                 }
               } else {
                 tmp = "Couldn't find anything similar enough.";
               }
             }
-            break;
-        case "delete" :
-        case "remove" :
-        case "unpin" :
-            exit = 2;
-            break;
-        default:
-          tmp = "Sorry I don't understand what you're trying to do :( | Available commands: [add, remove, get, search]";
-      }
-      switch (exit) {
-        case 1 :
-            if (args.length === 1) {
-              tmp = "You didn't actually provide a message. Add some text after that";
-            } else {
-              var messageText$1 = args.slice(1).join(" ");
-              var newData = dataWithAddedMessage(dat, messageText$1, executor);
+          } else {
+            tmp = res$1._0;
+          }
+          break;
+      case "delete" :
+      case "remove" :
+      case "unpin" :
+          exit = 2;
+          break;
+      default:
+        tmp = "Sorry I don't understand what you're trying to do :( | Available commands: [add, remove, get, search]";
+    }
+    switch (exit) {
+      case 1 :
+          if (args.length === 1) {
+            tmp = "You didn't actually provide a message. Add some text after that";
+          } else {
+            var messageText$1 = args.slice(1).join(" ");
+            if (data.TAG === "Ok") {
+              var newData = dataWithAddedMessage(data._0, messageText$1, executor);
               channelCustomData.set("OOC_MSGS", newData);
               tmp = "Pinned the message with ID: " + newData.currentId.toString();
+            } else {
+              var emptyData_messages = [];
+              var emptyData = {
+                currentId: 0,
+                messages: emptyData_messages
+              };
+              var newData$1 = dataWithAddedMessage(emptyData, messageText$1, executor);
+              channelCustomData.set("OOC_MSGS", newData$1);
+              tmp = "Pinned the message with ID: " + newData$1.currentId.toString();
             }
-            break;
-        case 2 :
-            if (dat.messages.length === 0) {
-              tmp = noPinnedMessages;
-            } else if (args.length === 1) {
+          }
+          break;
+      case 2 :
+          var res$2 = Core__Result.mapError(data, (function (err) {
+                  return Supibot.ChannelCustomData.oocErrorToStr(err);
+                }));
+          if (res$2.TAG === "Ok") {
+            if (args.length === 1) {
               tmp = "You should provide an ID, like $$ooc remove 1";
             } else {
+              var dat$2 = res$2._0;
               var xd$1 = args[1];
-              if (xd$1 === "last") {
-                var maxId = getMaxIdInData(dat);
-                var messagesWithRemovedMessage = dataWithRemovedMessageById(dat, maxId);
-                if (messagesWithRemovedMessage.messages.length < dat.messages.length) {
-                  channelCustomData.set("OOC_MSGS", messagesWithRemovedMessage);
+              var exit$2 = 0;
+              switch (xd$1) {
+                case "last" :
+                case "latest" :
+                    exit$2 = 3;
+                    break;
+                default:
+                  var num$1 = Core__Int.fromString(xd$1, undefined);
+                  if (num$1 !== undefined) {
+                    var msg$2 = getMessageWithId(dat$2, num$1).at(0);
+                    if (msg$2 !== undefined) {
+                      var messagesWithRemovedMessage = dataWithRemovedMessageById(dat$2, msg$2.id);
+                      channelCustomData.set("OOC_MSGS", messagesWithRemovedMessage);
+                      tmp = "Succesfully removed message with id " + msg$2.id.toString();
+                    } else {
+                      var closestNumber$1 = getClosestId(dat$2.messages.map(function (m) {
+                                return m.id;
+                              }), num$1);
+                      tmp = isInMiddle(dat$2, num$1) ? "Looks like that message has been deleted already. Did you mean #" + closestNumber$1.toString() + " ?" : "Couldn't find a message with that id. Did you mean #" + closestNumber$1.toString() + " ?";
+                    }
+                  } else {
+                    tmp = "Please provide a number instead of " + args[1];
+                  }
+              }
+              if (exit$2 === 3) {
+                var maxId = getMaxIdInData(dat$2);
+                var messagesWithRemovedMessage$1 = dataWithRemovedMessageById(dat$2, maxId);
+                if (messagesWithRemovedMessage$1.messages.length < dat$2.messages.length) {
+                  channelCustomData.set("OOC_MSGS", messagesWithRemovedMessage$1);
                   tmp = "Succesfully removed last message (#" + maxId.toString() + ")";
                 } else {
                   tmp = "Couldn't remove message with last ID. Report this to @treuks";
                 }
-              } else {
-                var num$1 = Core__Int.fromString(xd$1, undefined);
-                if (num$1 !== undefined) {
-                  var msg$2 = getMessageWithId(dat, num$1).at(0);
-                  if (msg$2 !== undefined) {
-                    var messagesWithRemovedMessage$1 = dataWithRemovedMessageById(dat, msg$2.id);
-                    channelCustomData.set("OOC_MSGS", messagesWithRemovedMessage$1);
-                    tmp = "Succesfully removed message with id " + msg$2.id.toString();
-                  } else {
-                    var closestNumber$1 = getClosestId(dat.messages.map(function (m) {
-                              return m.id;
-                            }), num$1);
-                    tmp = isInMiddle(dat, num$1) ? "Looks like that message has been deleted already. Did you mean #" + closestNumber$1.toString() + " ?" : "Couldn't find a message with that id. Did you mean #" + closestNumber$1.toString() + " ?";
-                  }
-                } else {
-                  tmp = "Please provide a number instead of " + args[1];
-                }
               }
+              
             }
-            break;
-        
-      }
-    } else {
-      tmp = formatRandomMessage(getRandomMessage(dat));
+          } else {
+            tmp = res$2._0;
+          }
+          break;
+      
     }
   } else {
-    tmp = "It seems like this command is being ran for the first time. Try adding some messages with $$ooc add […]";
+    var res$3 = Core__Result.mapError(data, (function (oocError) {
+            return Supibot.ChannelCustomData.oocErrorToStr(oocError);
+          }));
+    tmp = res$3.TAG === "Ok" ? formatRandomMessage(getRandomMessage(res$3._0)) : res$3._0;
   }
   return utils.unping(tmp);
 }
+
+var noPinnedMessages = "There aren't any pinned messages yet. You should try pinning something with $$ooc add […]";
 
 export {
   getRandomMessage ,
